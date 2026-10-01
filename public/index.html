@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="tr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Halı Saha Grubu</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#061015;color:#f4f7f8;font-family:Arial,sans-serif}.app{max-width:520px;margin:auto;min-height:100vh;padding-bottom:30px}
+header{padding:18px;display:flex;justify-content:space-between;background:#09161b;position:sticky;top:0;z-index:2}.logo{font-size:20px;font-weight:800}
+main{padding:14px}.card{background:#101d23;border:1px solid #24363d;border-radius:17px;padding:15px;margin-bottom:12px}.muted{color:#91a2aa;font-size:13px}.title{font-size:21px;font-weight:800;margin:4px 0 12px}
+button,input,select{font:inherit;border-radius:11px;padding:11px;border:0}button{cursor:pointer;font-weight:800}.primary{background:#18d66b;color:#03210f;width:100%;margin-top:9px}.dark{background:#1b2b32;color:#e8eef0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.team{background:#0a151a;padding:12px;border-radius:14px}.team h3{margin:0 0 8px}.player{padding:8px 5px;border-bottom:1px solid #1d2b31;font-size:13px}.player:last-child{border:0}.bench{margin-top:10px}.pill{display:inline-block;border-radius:99px;padding:5px 9px;font-size:11px;font-weight:800}.green{background:#0c6337;color:#80ffb3}.red{background:#5c2525;color:#ffabab}.gray{background:#2a373d;color:#cbd3d6}.form{display:grid;gap:8px}.form input,.form select{background:#091419;color:white;border:1px solid #293b42}.notice{padding:11px;background:#10252d;border-radius:12px;font-size:12px;line-height:1.45}
+</style></head>
+<body><div class="app">
+<header><div class="logo">⚽ Halı Saha Grubu</div><div>👤</div></header>
+<main id="app">Yükleniyor...</main></div>
+<script>
+let state=null, lineup=null;
+const $=id=>document.getElementById(id);
+async function load(){state=await fetch('/api/state').then(r=>r.json());lineup=await fetch('/api/lineup').then(r=>r.json());render();}
+function initials(n){return n.split(' ').map(x=>x[0]).join('').slice(0,2)}
+function render(){
+ const w=state.week;
+ $('app').innerHTML=`
+ <div class="card"><div class="muted">Bu Haftaki Maç</div><div class="title">${w.match_date} · ${w.match_time}</div><div class="muted">📍 ${w.location}</div></div>
+ <div class="card"><div class="title">Katılım</div>
+ <div class="form"><select id="who"><option value="">Oyuncunu seç</option>${state.players.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+ <select id="team"><option value="any">Takım tercihi: Fark etmez</option><option value="white">⚪ Beyaz</option><option value="black">⚫ Siyah</option></select>
+ <div class="grid"><button class="primary" onclick="attend('yes')">✅ Geliyorum</button><button class="dark" onclick="attend('no')">❌ Gelemiyorum</button></div></div></div>
+ <div class="card"><div class="title">Bu Haftaki Kadro</div>
+ <div class="grid"><div class="team"><h3>⚪ Beyaz <span class="muted">${lineup.white.length}/7</span></h3>${lineup.white.map(p=>`<div class="player">${initials(p.name)} · ${p.name}</div>`).join('')}</div>
+ <div class="team"><h3>⚫ Siyah <span class="muted">${lineup.black.length}/7</span></h3>${lineup.black.map(p=>`<div class="player">${initials(p.name)} · ${p.name}</div>`).join('')}</div></div>
+ <div class="bench"><h3>🪑 Yedekler (${lineup.bench.length})</h3>${lineup.bench.map((p,i)=>`<div class="player">${i+1}. ${p.name} <span class="pill ${i===0?'green':'gray'}">${i===0?'Sıradaki':'Bekliyor'}</span></div>`).join('')}</div></div>
+ <div class="notice">Bir oyuncu gelmezse, yedek sırasındaki ilk kişi otomatik olarak 14 kişilik kadroya alınır. Sıra, önceki katılım sayılarıyla dengelenir.</div>
+ <div class="card"><div class="title">Katılım Listesi</div>${state.players.map(p=>{let a=state.attendance.find(x=>x.player_id===p.id);return `<div class="player">${p.name} — <span class="pill ${a?.status==='yes'?'green':a?.status==='no'?'red':'gray'}">${a?.status==='yes'?'Geliyor':a?.status==='no'?'Gelmiyor':'Cevap yok'}</span></div>`}).join('')}</div>
+ <div class="card"><div class="title">Yönetici</div><div class="form"><input id="key" type="password" placeholder="Yönetici anahtarı"><input id="newname" placeholder="Yeni oyuncu adı"><button class="primary" onclick="addPlayer()">Oyuncu Ekle</button></div></div>`;
+}
+async function attend(status){let id=$('who').value;if(!id)return alert('Önce oyuncunu seç.');await fetch('/api/attendance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({player_id:Number(id),status,team:$('team').value})});await load();alert(status==='yes'?'Katılımın kaydedildi.':'Gelemez olarak kaydedildi.');}
+async function addPlayer(){let key=$('key').value,name=$('newname').value.trim();if(!key||!name)return alert('Anahtar ve isim gerekli.');let r=await fetch('/api/admin/players',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':key},body:JSON.stringify({name})});if(!r.ok)return alert('Yönetici anahtarı hatalı.');await load();}
+load();
+</script></body></html>
